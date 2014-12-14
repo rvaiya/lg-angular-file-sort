@@ -12,33 +12,39 @@ var states = {};
 function updater(identifier) {
   states[identifier] = states[identifier] || { depChange: new EventEmitter() };
   var state = states[identifier];
+  state.targets = state.targets || {};
 
   return function updaterGen() {
       return through.obj(function(file, enc, cb) {
         var stream = this;
         stream.push(file);
 
-        gulp.src(state.htmlFiles)
-          .pipe(inject (
+        var injector = inject (
             gulp.src(state.angularFiles).pipe(plumber()).pipe(angularFileSort()),
             { relative: true }
-          ))
-          .on('data', function(f) { stream.push(f); })
-          .on('end', function() {
-            state.depChange.emit('changed');
-            cb();
-          });
+        )
+        .on('data', function(f) { stream.push(f); })
+        .on('end', function() { 
+          cb(); 
+          state.depChange.emit('changed');
+        });
+
+        for(var k in state.targets) {
+          injector.write(state.targets[k]);
+
+        };
+        injector.end();
     });
   };
 }
 
 //Generate a dynamic dependency injector which listens for changes
 
-function injector(identifier, angularFiles, htmlFiles) {
+function injector(identifier, angularFiles) {
   states[identifier] = states[identifier] || { depChange: new EventEmitter() };
   var state = states[identifier];
   state.angularFiles = angularFiles;
-  state.htmlFiles = htmlFiles;
+  state.targets = {};
 
 
   return function genDepInjectStream () {
@@ -55,6 +61,7 @@ function injector(identifier, angularFiles, htmlFiles) {
     });
 
     return through.obj(function(file, enc, cb) {
+      state.targets[file.path] = file;
       var stream = this;
       injector.write(file);
       injector.once('data', function flush(file) {

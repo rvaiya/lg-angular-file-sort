@@ -1,22 +1,21 @@
-#wtf?
+#Description
 
  Splits angular-file-sorter into two streams, one which injects angular
  depdencies into files and another which updates the dependency list each
- time it receives data. This allows one to use angular-files-sort with a
- watcher and intelligently perform injection on different file sets.
+ time it is written to. This allows one to use angular-files-sort with a
+ watcher to intelligently perform injection on different file sets.
 
 #Usage
 
- The injector  consumes an identifier, a glob describing the angular files
- being injected, and a glob describing the injection target and returns a
- stream generator which produces a stream that injects the specified angular
- dependencies into the files passed into it. If the dependency list is
- updated all of the target files specified by the second glob expression will
- be updated.
+ The injector  consumes an identifier and a glob describing the angular files
+ being injected and returns a stream generator which produces a stream that
+ injects the specified angular dependencies into the files passed into it.
 
  The updater consumes an identifier and returns a stream generator which
- generates a stream that updates the dependency list associated with an
- injector sharing the identifier each time data is piped into it.
+ generates a stream that updates the dependency list associated with the
+ injector sharing the identifier. Each time data is piped into the stream the
+ dep list is updated and all files that have flowed through the injector are
+ re-injected.
 
 #Example
 
@@ -28,12 +27,12 @@ var lg = require('lazy-gulp');
 
 var ruleset = [ 
   {
-      files: '\*js',
+      files: '*js',
       description = [ updater('main') ]
   }, 
   { 
-      files: '\*html',
-      description = [ injector('main', '\*js', '\*html') ]
+      files: '*html',
+      description = [ injector('main', '*js') ]
   }
 ];
 
@@ -46,11 +45,11 @@ gulp.task('watch', lg.compile(ruleset, 'build', 'watch'));
 var watch = require('gulp-watch');
 var angular = require('lg-angular-file-sort');
 
-watch('\*.js')
+watch('*.js')
   .pipe(angular.updater('main')());
   .pipe(gulp.dest('output'));
 
-watch('\*.js')
-  .pipe(angular.injector('main', '\*.js', '\*.html')());
+watch('*.html')
+  .pipe(angular.injector('main', '*.js')());
   .pipe(gulp.dest('output'));
 ```
