@@ -1,4 +1,5 @@
 var plumber = require('gulp-plumber');
+var path = require('path');
 var angularFileSort = require('gulp-angular-filesort');
 var inject = require('gulp-inject');
 var through = require('through2');
@@ -12,7 +13,7 @@ var states = {};
 function updater(identifier) {
   states[identifier] = states[identifier] || { depChange: new EventEmitter() };
   var state = states[identifier];
-  state.targets = state.targets || {};
+  state.targets = state.targets || [];
 
   return function updaterGen() {
       return through.obj(function(file, enc, cb) {
@@ -24,16 +25,13 @@ function updater(identifier) {
             { relative: true }
         )
         .on('data', function(f) { stream.push(f); })
-        .on('end', function() { 
-          cb(); 
+        .on('end', function() {
+          cb();
           state.depChange.emit('changed');
         });
 
-        for(var k in state.targets) {
-          injector.write(state.targets[k]);
-
-        };
-        injector.end();
+        gulp.src(state.targets)
+          .pipe(injector);
     });
   };
 }
@@ -43,13 +41,14 @@ function updater(identifier) {
 function injector(identifier, angularFiles) {
   states[identifier] = states[identifier] || { depChange: new EventEmitter() };
   var state = states[identifier];
+
   state.angularFiles = angularFiles;
-  state.targets = {};
+  state.targets = [];
 
 
   return function genDepInjectStream () {
     var injector = inject (
-      gulp.src(angularFiles).pipe(plumber()).pipe(angularFileSort()),
+      gulp.src(state.angularFiles).pipe(plumber()).pipe(angularFileSort()),
       { relative: true }
     );
 
@@ -61,7 +60,8 @@ function injector(identifier, angularFiles) {
     });
 
     return through.obj(function(file, enc, cb) {
-      state.targets[file.path] = file;
+      state.targets.push(file.path);
+
       var stream = this;
       injector.write(file);
       injector.once('data', function flush(file) {
